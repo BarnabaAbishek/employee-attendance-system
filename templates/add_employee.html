@@ -1,0 +1,487 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Management - Attendance System{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2 class="h4">
+            <i class="fas fa-users"></i> Employee Management
+        </h2>
+    </div>
+    <div class="col-md-6 text-end">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
+            <i class="fas fa-user-plus"></i> Add New Employee
+        </button>
+    </div>
+</div>
+
+<!-- Search Box -->
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="input-group emp-search-box">
+            <span class="input-group-text">
+                <i class="fas fa-search"></i>
+            </span>
+            <input type="text" class="form-control" id="searchEmployee" 
+                   placeholder="Search employees by name, ID, department...">
+        </div>
+    </div>
+</div>
+
+<!-- Employees Table -->
+<div class="card shadow">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">
+            <i class="fas fa-list"></i> Employee List - Total: {{ employees|length }}
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Employee ID</th>
+                        <th>Name</th>
+                        <th>Department</th>
+                        <th>Position</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr id="emp-row-{{ emp.id }}">
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <strong>{{ emp.employee_id }}</strong>
+                        </td>
+                        <td>
+                            <strong>{{ emp.name }}</strong>
+                        </td>
+                        <td>{{ emp.department or 'Not Assigned' }}</td>
+                        <td>{{ emp.position or 'Employee' }}</td>
+                        <td>
+                            {% if emp.email %}
+                            <a href="mailto:{{ emp.email }}" class="text-decoration-none">
+                                {{ emp.email }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if emp.phone %}
+                            <a href="tel:{{ emp.phone }}" class="text-decoration-none">
+                                {{ emp.phone }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set emp_status = emp.status if emp.status else 'active' %}
+                            <span class="badge bg-{{ 
+                                'success' if emp_status == 'active' 
+                                else 'warning' if emp_status == 'on-leave'
+                                else 'secondary' 
+                            }}">
+                                {{ emp_status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    onclick="loadEmployeeForEdit('{{ emp.id }}')"
+                                    title="Edit Employee">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    onclick="confirmDelete('{{ emp.id }}', '{{ emp.name }}')"
+                                    title="Delete Employee">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5 text-muted">
+                            <div class="py-4">
+                                <i class="fas fa-users fa-3x mb-3 text-light"></i><br>
+                                <h5 class="text-muted">No Employees Found</h5>
+                                <p class="small">Add your first employee using the "Add New Employee" button</p>
+                                <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
+                                    <i class="fas fa-user-plus"></i> Add First Employee
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Employee Modal -->
+<div class="modal fade" id="addEmployeeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus"></i> Add New Employee
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_employee') }}" id="addEmployeeForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" name="name" required 
+                                   placeholder="Enter full name">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Employee ID *</label>
+                            <input type="text" class="form-control" name="employee_id" required 
+                                   placeholder="e.g., EMP001">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Department *</label>
+                            <select class="form-select" name="department" required>
+                                <option value="">Select Department</option>
+                                <option value="IT">IT</option>
+                                <option value="HR">HR</option>
+                                <option value="Finance">Finance</option>
+                                <option value="Marketing">Marketing</option>
+                                <option value="Operations">Operations</option>
+                                <option value="Sales">Sales</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Support">Support</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Position *</label>
+                            <input type="text" class="form-control" name="position" required
+                                   placeholder="e.g., Software Engineer">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" class="form-control" name="email"
+                                   placeholder="employee@company.com">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" name="phone"
+                                   placeholder="1234567890">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Join Date</label>
+                            <input type="date" class="form-control" name="join_date"
+                                   value="{{ now().strftime('%Y-%m-%d') if now else '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" name="status">
+                                <option value="active" selected>Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="on-leave">On Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="addEmployeeBtn">
+                        <i class="fas fa-save"></i> Add Employee
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Employee Modal -->
+<div class="modal fade" id="editEmployeeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-edit"></i> Edit Employee
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('update_employee') }}" id="editEmployeeForm">
+                <input type="hidden" name="employee_id" id="editEmployeeId">
+                
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" id="editName" name="name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Employee ID *</label>
+                            <input type="text" class="form-control" id="editEmployeeCode" name="employee_code" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Department *</label>
+                            <select class="form-select" id="editDepartment" name="department" required>
+                                <option value="">Select Department</option>
+                                <option value="IT">IT</option>
+                                <option value="HR">HR</option>
+                                <option value="Finance">Finance</option>
+                                <option value="Marketing">Marketing</option>
+                                <option value="Operations">Operations</option>
+                                <option value="Sales">Sales</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Support">Support</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Position *</label>
+                            <input type="text" class="form-control" id="editPosition" name="position" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="editEmail" name="email">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="editPhone" name="phone">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Join Date</label>
+                            <input type="date" class="form-control" id="editJoinDate" name="join_date">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Status *</label>
+                            <select class="form-select" id="editStatus" name="status" required>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="on-leave">On Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning" id="updateEmployeeBtn">
+                        <i class="fas fa-save"></i> Update Employee
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle"></i> Confirm Delete
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete employee: <strong id="deleteEmpName"></strong>?</p>
+                <p class="text-danger">
+                    <i class="fas fa-exclamation-circle"></i> This action cannot be undone!
+                </p>
+                <div class="alert alert-warning mt-2">
+                    <small>
+                        <i class="fas fa-info-circle"></i> Note: This will delete the employee record 
+                        but attendance records will remain.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a id="confirmDeleteBtn" href="#" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Delete
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load employee for editing
+function loadEmployeeForEdit(employeeId) {
+    // Show loading state
+    const editBtn = $(`#emp-row-${employeeId} .btn-outline-primary`);
+    const originalHtml = editBtn.html();
+    editBtn.html('<i class="fas fa-spinner fa-spin"></i>');
+    editBtn.prop('disabled', true);
+    
+    $.ajax({
+        url: `/get_employee/${employeeId}`,
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                // Fill the edit form
+                $('#editEmployeeId').val(response.employee.id);
+                $('#editName').val(response.employee.name || '');
+                $('#editEmployeeCode').val(response.employee.employee_id || '');
+                $('#editDepartment').val(response.employee.department || '');
+                $('#editPosition').val(response.employee.position || '');
+                $('#editEmail').val(response.employee.email || '');
+                $('#editPhone').val(response.employee.phone || '');
+                $('#editJoinDate').val(response.employee.join_date || '');
+                $('#editStatus').val(response.employee.status || 'active');
+                
+                // Show edit modal
+                $('#editEmployeeModal').modal('show');
+                
+                // Show success notification
+                showNotification('Employee details loaded successfully!', 'success');
+            } else {
+                showNotification(response.message || 'Failed to load employee details', 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            showNotification('Error loading employee details: ' + error, 'error');
+        },
+        complete: function() {
+            // Restore button state
+            editBtn.html(originalHtml);
+            editBtn.prop('disabled', false);
+        }
+    });
+}
+
+// Confirm delete employee
+function confirmDelete(empId, empName) {
+    $('#deleteEmpName').text(empName);
+    $('#confirmDeleteBtn').attr('href', '/delete_employee/' + empId);
+    $('#deleteModal').modal('show');
+}
+
+// Form handling
+$(document).ready(function() {
+    // Add employee form submission
+    $('#addEmployeeForm').on('submit', function() {
+        const submitBtn = $('#addEmployeeBtn');
+        const originalText = submitBtn.html();
+        submitBtn.prop('disabled', true);
+        submitBtn.html('<i class="fas fa-spinner fa-spin"></i> Adding...');
+        
+        // Auto re-enable after 5 seconds (safety)
+        setTimeout(function() {
+            submitBtn.prop('disabled', false);
+            submitBtn.html(originalText);
+        }, 5000);
+    });
+    
+    // Edit employee form submission
+    $('#editEmployeeForm').on('submit', function() {
+        const submitBtn = $('#updateEmployeeBtn');
+        const originalText = submitBtn.html();
+        submitBtn.prop('disabled', true);
+        submitBtn.html('<i class="fas fa-spinner fa-spin"></i> Updating...');
+        
+        // Auto re-enable after 5 seconds (safety)
+        setTimeout(function() {
+            submitBtn.prop('disabled', false);
+            submitBtn.html(originalText);
+        }, 5000);
+    });
+    
+    // Auto-focus first input in modals
+    $('#addEmployeeModal').on('shown.bs.modal', function() {
+        $(this).find('input[name="name"]').focus();
+    });
+    
+    $('#editEmployeeModal').on('shown.bs.modal', function() {
+        $(this).find('input[name="name"]').focus();
+    });
+    
+    // Clear form data when add modal is closed
+    $('#addEmployeeModal').on('hidden.bs.modal', function() {
+        $(this).find('form')[0].reset();
+    });
+    
+    // Search functionality
+    $('#searchEmployee').on('keyup', function() {
+        const value = $(this).val().toLowerCase();
+        $('table tbody tr').each(function() {
+            const rowText = $(this).text().toLowerCase();
+            $(this).toggle(rowText.indexOf(value) > -1);
+        });
+    });
+});
+
+// Notification function
+function showNotification(message, type = 'info') {
+    const types = {
+        'success': 'bg-success',
+        'error': 'bg-danger',
+        'warning': 'bg-warning',
+        'info': 'bg-info'
+    };
+    
+    const icons = {
+        'success': 'check-circle',
+        'error': 'times-circle',
+        'warning': 'exclamation-triangle',
+        'info': 'info-circle'
+    };
+    
+    const toastId = 'toast_' + Date.now();
+    const toast = '<div id="' + toastId + '" class="position-fixed top-0 end-0 p-3" style="z-index: 1060">' +
+                  '<div class="toast align-items-center text-white ' + types[type] + ' border-0" role="alert">' +
+                  '<div class="d-flex">' +
+                  '<div class="toast-body">' +
+                  '<i class="fas fa-' + icons[type] + ' me-2"></i>' +
+                  message +
+                  '</div>' +
+                  '<button type="button" class="btn-close btn-close-white me-2 m-auto" ' +
+                  'data-bs-dismiss="toast"></button>' +
+                  '</div>' +
+                  '</div>' +
+                  '</div>';
+    
+    $('body').append(toast);
+    $('#' + toastId + ' .toast').toast('show');
+    
+    setTimeout(function() {
+        $('#' + toastId).remove();
+    }, 4000);
+}
+</script>
+
+<style>
+.emp-search-box {
+    max-width: 300px;
+}
+@media (max-width: 768px) {
+    .emp-search-box {
+        max-width: 100%;
+    }
+}
+</style>
+{% endblock %}

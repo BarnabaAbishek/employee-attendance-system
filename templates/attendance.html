@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Mark Attendance - Attendance System{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="h4">
+            <i class="fas fa-check-circle"></i> Mark Attendance
+        </h2>
+        <p class="text-muted">Mark attendance for {{ today }}</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="markAll('present')">
+                <i class="fas fa-check"></i> Mark All Present
+            </button>
+            <button class="btn btn-outline-secondary" onclick="markAll('absent')">
+                <i class="fas fa-times"></i> Mark All Absent
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Form -->
+<div class="card shadow">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-calendar-day"></i> Today's Attendance
+        </h5>
+        <div class="text-muted">
+            <i class="fas fa-sync-alt"></i> Auto-saves
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Employee ID</th>
+                        <th>Name</th>
+                        <th>Department</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr id="row-{{ emp.id }}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ emp.employee_id }}</td>
+                        <td>
+                            <strong>{{ emp.name }}</strong>
+                        </td>
+                        <td>{{ emp.department }}</td>
+                        <td>
+                            <select class="form-select form-select-sm status-select" 
+                                    data-emp-id="{{ emp.id }}">
+                                <option value="">Select Status</option>
+                                <option value="present">✅ Present</option>
+                                <option value="absent">❌ Absent</option>
+                                <option value="late">⏰ Late</option>
+                                <option value="half-day">½ Half Day</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm notes-input" 
+                                   data-emp-id="{{ emp.id }}" 
+                                   placeholder="Optional notes...">
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-primary mark-btn" 
+                                    data-emp-id="{{ emp.id }}">
+                                <i class="fas fa-save"></i> Save
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fas fa-users fa-2x mb-2"></i><br>
+                            No active employees found. Add employees first!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center p-3">
+                <h6>Marked Today</h6>
+                <h3 id="markedCount">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center p-3">
+                <h6>Pending</h6>
+                <h3 id="pendingCount">{{ employees|length }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center p-3">
+                <h6>Present</h6>
+                <h3 id="presentCount">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body text-center p-3">
+                <h6>Absent</h6>
+                <h3 id="absentCount">0</h3>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Initialize counts
+    updateStats();
+    
+    // Mark attendance button click
+    $('.mark-btn').click(function() {
+        const empId = $(this).data('emp-id');
+        markAttendance(empId);
+    });
+    
+    // Enter key in notes field
+    $('.notes-input').keypress(function(e) {
+        if (e.which === 13) { // Enter key
+            const empId = $(this).data('emp-id');
+            markAttendance(empId);
+        }
+    });
+    
+    // Status select change
+    $('.status-select').change(function() {
+        const empId = $(this).data('emp-id');
+        const row = $('#row-' + empId);
+        const status = $(this).val();
+        
+        // Change row color based on status
+        row.removeClass('table-success table-danger table-warning');
+        if (status === 'present') row.addClass('table-success');
+        if (status === 'absent') row.addClass('table-danger');
+        if (status === 'late') row.addClass('table-warning');
+        
+        updateStats();
+    });
+});
+
+function markAttendance(empId) {
+    const status = $(`select[data-emp-id="${empId}"]`).val();
+    const notes = $(`input[data-emp-id="${empId}"]`).val();
+    const date = '{{ today }}';
+    
+    if (!status) {
+        alert('Please select a status first!');
+        return;
+    }
+    
+    // Disable button and show loading
+    const btn = $(`.mark-btn[data-emp-id="${empId}"]`);
+    const originalHtml = btn.html();
+    btn.html('<i class="fas fa-spinner fa-spin"></i> Saving...');
+    btn.prop('disabled', true);
+    
+    // Send AJAX request
+    $.ajax({
+        url: '/mark_attendance',
+        type: 'POST',
+        data: {
+            employee_id: empId,
+            status: status,
+            date: date,
+            notes: notes
+        },
+        success: function(response) {
+            if (response.success) {
+                // Show success message
+                const row = $('#row-' + empId);
+                row.addClass('table-success');
+                
+                // Update button
+                btn.removeClass('btn-primary').addClass('btn-success');
+                btn.html('<i class="fas fa-check"></i> Saved');
+                
+                // Show toast
+                showToast(response.message, 'success');
+                
+                // Update stats
+                updateStats();
+            } else {
+                showToast(response.message, 'danger');
+                btn.html(originalHtml);
+                btn.prop('disabled', false);
+            }
+        },
+        error: function() {
+            showToast('Error saving attendance!', 'danger');
+            btn.html(originalHtml);
+            btn.prop('disabled', false);
+        }
+    });
+}
+
+function markAll(status) {
+    if (!confirm(`Mark ALL employees as ${status}?`)) return;
+    
+    $('.status-select').each(function() {
+        $(this).val(status).trigger('change');
+    });
+}
+
+function updateStats() {
+    let marked = 0;
+    let present = 0;
+    let absent = 0;
+    
+    $('.status-select').each(function() {
+        const status = $(this).val();
+        if (status) marked++;
+        if (status === 'present') present++;
+        if (status === 'absent') absent++;
+    });
+    
+    $('#markedCount').text(marked);
+    $('#pendingCount').text({{ employees|length }} - marked);
+    $('#presentCount').text(present);
+    $('#absentCount').text(absent);
+}
+
+function showToast(message, type) {
+    // Create toast
+    const toastId = 'toast-' + Date.now();
+    const toast = `
+        <div id="${toastId}" class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
+            <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+                            data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add toast to body
+    $('body').append(toast);
+    
+    // Show and auto-remove
+    $('#' + toastId + ' .toast').toast('show');
+    setTimeout(() => {
+        $('#' + toastId).remove();
+    }, 3000);
+}
+</script>
+{% endblock %}
